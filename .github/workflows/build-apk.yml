@@ -32,14 +32,14 @@ jobs:
         
       - name: clone
         run: |
-          git clone ${{ github.event.inputs.repo-url }}source
+          git clone ${{ github.event.inputs.repo-url }}
           echo "projectName=$(basename -s .git ${{ github.event.inputs.repo-url }})" >> $GITHUB_ENV
           echo "dirName=$(echo ${{ github.event.inputs.repo-dir }} | sed -r 's/[/]+/ - /g')" >> $GITHUB_ENV
         
       - name: select commit
         if: ${{ github.event.inputs.repo-commit != '' }}
         run: |
-          cd source/${{ env.projectName }}
+          cd ${{ env.projectName }}
           git checkout ${{ github.event.inputs.repo-commit }}
           
       - name: add google-services.json
@@ -47,14 +47,14 @@ jobs:
         run: |
           content=$(jq -r '.inputs.googleservices' $GITHUB_EVENT_PATH)
           echo "::add-mask::$content"
-          echo "$content" > source/${{ env.projectName }}${{ github.event.inputs.repo-dir }}/${{ github.event.inputs.module }}/google-services.json
+          echo "$content" > ${{ env.projectName }}${{ github.event.inputs.repo-dir }}/${{ github.event.inputs.module }}/google-services.json
         
       - name: add local.properties
         if: ${{ github.event.inputs.localproperties != '' }}
         run: |
           content=$(jq -r '.inputs.localproperties' $GITHUB_EVENT_PATH)
           echo "::add-mask::$content"
-          echo "$content" > source/${{ env.projectName }}${{ github.event.inputs.repo-dir }}/local.properties
+          echo "$content" > ${{ env.projectName }}${{ github.event.inputs.repo-dir }}/local.properties
         
       - name: setup
         uses: actions/setup-java@v4
@@ -66,14 +66,14 @@ jobs:
       - name: build
         if: ${{ github.event.inputs.sign == 'false' }}
         run: |
-          cd source/${{ env.projectName }}${{ github.event.inputs.repo-dir }}
+          cd ${{ env.projectName }}${{ github.event.inputs.repo-dir }}
           chmod +x gradlew
           ./gradlew ${{ github.event.inputs.module }}:assembleRelease
           
       - name: build & sign
         if: ${{ github.event.inputs.sign == 'true' }}
         run: |
-          cd source/${{ env.projectName }}${{ github.event.inputs.repo-dir }}
+          cd ${{ env.projectName }}${{ github.event.inputs.repo-dir }}
           chmod +x gradlew
           ./gradlew ${{ github.event.inputs.module }}:assembleRelease -Pandroid.injected.signing.store.file='${{ github.workspace }}/grab-keystore.jks' -Pandroid.injected.signing.store.password='grab-pwd' -Pandroid.injected.signing.key.alias='sign' -Pandroid.injected.signing.key.password='grab-pwd'
           
@@ -81,6 +81,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.projectName }}${{ env.dirName }} - ${{ github.event.inputs.module }}
-          path: ${{ github.workspace }}/source/${{ env.projectName }}${{ github.event.inputs.repo-dir }}/${{ github.event.inputs.module }}/build/outputs/apk/release/*.apk 
+          path: ${{ github.workspace }}/${{ env.projectName }}${{ github.event.inputs.repo-dir }}/${{ github.event.inputs.module }}/build/outputs/apk/release/*.apk 
           
           
