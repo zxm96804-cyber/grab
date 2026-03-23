@@ -30,22 +30,20 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      # 修正 Android SDK 安装方式，去掉不兼容参数
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          api-level: 33
-          build-tools: 33.0.2
-          ndk: 25.2.9519653
 
-      - name: Install workloads
+      - name: Install Android workload
         run: |
           dotnet workload install android
-          dotnet workload restore source/GalaxyBudsClient.Android
+          cd source
+          dotnet workload restore
 
       - name: Build Release APK
         run: |
           cd source
-          dotnet build GalaxyBudsClient.Android/GalaxyBudsClient.Android.csproj -c Release -p:AndroidPackageFormat=apk
+          dotnet build GalaxyBudsClient.Android -c Release -p:AndroidPackageFormat=apk
 
       - name: Find APK
         id: find-apk
