@@ -1,14 +1,14 @@
-name: build GalaxyBudsClient APK
+name: Build GalaxyBudsClient (Low Memory)
 
 on:
   workflow_dispatch:
     inputs:
       repo-url:
-        description: 'git clone url'
+        description: 'Git Clone URL'
         required: true
         default: 'https://github.com/timschneeb/GalaxyBudsClient.git'
       repo-commit:
-        description: 'commit (optional)'
+        description: 'Commit Hash (Optional)'
 
 jobs:
   build:
@@ -17,42 +17,52 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Clone GalaxyBudsClient
+      - name: Clone Source (Single Branch)
         run: |
-          git clone ${{ github.event.inputs.repo-url }} source
+          git clone --depth 1 ${{ github.event.inputs.repo-url }} source
           cd source
           if [ -n "${{ github.event.inputs.repo-commit }}" ]; then
+            git fetch --unshallow
             git checkout ${{ github.event.inputs.repo-commit }}
           fi
 
-      - name: Setup .NET 8
+      - name: Setup .NET 8 (Slim)
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+          dotnet-quality: 'release'
 
-      # 修正 Android SDK 安装方式，去掉不兼容参数
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android workload
+      - name: Install Android Dependencies
         run: |
-          dotnet workload install android
-          cd source
-          dotnet workload restore
+          # 只安装最小必要依赖，减少内存占用
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+            openjdk-17-jdk \
+            android-sdk \
+            android-sdk-platform-tools
 
-      - name: Build Release APK
+      - name: Restore & Build (Low Memory)
         run: |
           cd source
-          dotnet build GalaxyBudsClient.Android -c Release -p:AndroidPackageFormat=apk
+          # 1. 恢复依赖（单线程，减少内存峰值）
+          dotnet workload install android --skip-manifest-update
+          dotnet restore GalaxyBudsClient.Android/GalaxyBudsClient.Android.csproj /m:1
+
+          # 2. 直接构建（不加 Sign，避免额外内存消耗）
+          dotnet build GalaxyBudsClient.Android/GalaxyBudsClient.Android.csproj \
+            -c Release \
+            -p:AndroidPackageFormat=apk \
+            -p:EmbedAssembliesIntoApk=false \ # 关键：禁用合并 assemblies，大幅减内存
+            /m:1 # 单线程编译
 
       - name: Find APK
         id: find-apk
         run: |
-          APK_PATH=$(find source -name "*.apk" | head -1)
-          echo "apk-path=$APK_PATH" >> $GITHUB_OUTPUT
+          cd source
+          APK_PATH=$(find . -name "*.apk" | head -1)
+          echo "path=$APK_PATH" >> $GITHUB_OUTPUT
 
-      - name: Upload APK
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GalaxyBudsClient-APK
-          path: ${{ steps.find-apk.outputs.apk-path }}
+          name: Final-APK
+          path: source/${{ steps.find-apk.outputs.path }}
