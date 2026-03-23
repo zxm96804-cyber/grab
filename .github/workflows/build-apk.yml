@@ -32,7 +32,7 @@ jobs:
         
       - name: clone
         run: |
-          git clone ${{ github.event.inputs.repo-url }}
+          git clone ${{ github.event.inputs.repo-url }}.
           echo "projectName=$(basename -s .git ${{ github.event.inputs.repo-url }})" >> $GITHUB_ENV
           echo "dirName=$(echo ${{ github.event.inputs.repo-dir }} | sed -r 's/[/]+/ - /g')" >> $GITHUB_ENV
         
