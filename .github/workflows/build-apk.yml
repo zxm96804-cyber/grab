@@ -21,7 +21,7 @@ on:
       sign:
         type: boolean
         description: 'sign apk'
-        default: 'true'
+        default: true
 
 jobs:
   main:
@@ -29,58 +29,60 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
-        
+
       - name: clone
         run: |
-          git clone ${{ github.event.inputs.repo-url }}.
-          echo "projectName=$(basename -s .git ${{ github.event.inputs.repo-url }})" >> $GITHUB_ENV
-          echo "dirName=$(echo ${{ github.event.inputs.repo-dir }} | sed -r 's/[/]+/ - /g')" >> $GITHUB_ENV
-        
+          git clone ${{ github.event.inputs.repo-url }} GalaxyBudsClient
+          echo "projectName=GalaxyBudsClient" >> $GITHUB_ENV
+          echo "dirName=$(echo ${{ github.event.inputs.repo-dir }} | sed -r 's/[/]+/-/g')" >> $GITHUB_ENV
+
       - name: select commit
         if: ${{ github.event.inputs.repo-commit != '' }}
         run: |
-          cd ${{ env.projectName }}
+          cd GalaxyBudsClient
           git checkout ${{ github.event.inputs.repo-commit }}
-          
+
       - name: add google-services.json
         if: ${{ github.event.inputs.googleservices != '' }}
         run: |
           content=$(jq -r '.inputs.googleservices' $GITHUB_EVENT_PATH)
           echo "::add-mask::$content"
-          echo "$content" > ${{ env.projectName }}${{ github.event.inputs.repo-dir }}/${{ github.event.inputs.module }}/google-services.json
-        
+          echo "$content" > GalaxyBudsClient${{ github.event.inputs.repo-dir }}/${{ github.event.inputs.module }}/google-services.json
+
       - name: add local.properties
         if: ${{ github.event.inputs.localproperties != '' }}
         run: |
           content=$(jq -r '.inputs.localproperties' $GITHUB_EVENT_PATH)
           echo "::add-mask::$content"
-          echo "$content" > ${{ env.projectName }}${{ github.event.inputs.repo-dir }}/local.properties
-        
+          echo "$content" > GalaxyBudsClient${{ github.event.inputs.repo-dir }}/local.properties
+
       - name: setup
         uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: 11
           cache: "gradle"
-          
+
       - name: build
         if: ${{ github.event.inputs.sign == 'false' }}
         run: |
-          cd ${{ env.projectName }}${{ github.event.inputs.repo-dir }}
+          cd GalaxyBudsClient${{ github.event.inputs.repo-dir }}
           chmod +x gradlew
           ./gradlew ${{ github.event.inputs.module }}:assembleRelease
-          
+
       - name: build & sign
         if: ${{ github.event.inputs.sign == 'true' }}
         run: |
-          cd ${{ env.projectName }}${{ github.event.inputs.repo-dir }}
+          cd GalaxyBudsClient${{ github.event.inputs.repo-dir }}
           chmod +x gradlew
-          ./gradlew ${{ github.event.inputs.module }}:assembleRelease -Pandroid.injected.signing.store.file='${{ github.workspace }}/grab-keystore.jks' -Pandroid.injected.signing.store.password='grab-pwd' -Pandroid.injected.signing.key.alias='sign' -Pandroid.injected.signing.key.password='grab-pwd'
-          
+          ./gradlew ${{ github.event.inputs.module }}:assembleRelease -Pandroid.injected.signing.store.file='${{ github.workspace }}/grab-keystore.jks' -Pandroid.injected.signing.storePassword=$KEYSTORE_PASSWORD -Pandroid.injected.signing.keyAlias=$KEY_ALIAS -Pandroid.injected.signing.keyPassword=$KEY_PASSWORD
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
       - name: upload
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.projectName }}${{ env.dirName }} - ${{ github.event.inputs.module }}
-          path: ${{ github.workspace }}/${{ env.projectName }}${{ github.event.inputs.repo-dir }}/${{ github.event.inputs.module }}/build/outputs/apk/release/*.apk 
-          
-          
+          path: ${{ github.workspace }}/GalaxyBudsClient${{ github.event.inputs.repo-dir }}/${{ github.event.inputs.module }}/build/outputs/apk/release/*.apk
