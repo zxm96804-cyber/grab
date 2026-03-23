@@ -30,11 +30,10 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-          dotnet-quality: 'release'
+          dotnet-quality: 'ga'  # ✅ 修复这里
 
       - name: Install Android Dependencies
         run: |
-          # 只安装最小必要依赖，减少内存占用
           sudo apt-get update && sudo apt-get install -y --no-install-recommends \
             openjdk-17-jdk \
             android-sdk \
@@ -43,16 +42,13 @@ jobs:
       - name: Restore & Build (Low Memory)
         run: |
           cd source
-          # 1. 恢复依赖（单线程，减少内存峰值）
           dotnet workload install android --skip-manifest-update
           dotnet restore GalaxyBudsClient.Android/GalaxyBudsClient.Android.csproj /m:1
-
-          # 2. 直接构建（不加 Sign，避免额外内存消耗）
           dotnet build GalaxyBudsClient.Android/GalaxyBudsClient.Android.csproj \
             -c Release \
             -p:AndroidPackageFormat=apk \
-            -p:EmbedAssembliesIntoApk=false \ # 关键：禁用合并 assemblies，大幅减内存
-            /m:1 # 单线程编译
+            -p:EmbedAssembliesIntoApk=false \
+            /m:1
 
       - name: Find APK
         id: find-apk
